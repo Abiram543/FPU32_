@@ -1,4 +1,3 @@
-`timescale 1ns / 1ps
 // FPU_Core fix B: error output + no zero shortcut + area optimisations (shared add/sub, datapath flops without reset)
 //   error : 1-cycle pulse coincident with valid_out when a or b is Inf/NaN (exp==FF). result is don't-care then.
 //   zero  : not special-cased; a zero operand has frac_sml = 0, and the NORMAL cancellation branch yields the RNE zero sign.
