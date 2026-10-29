@@ -37,7 +37,7 @@ module FPU_Core(
     wire big_hid, sml_hid;
     //Checks magnitude to see if a and b need to be swapped
     wire swap;
-    wire a_nan,b_nan,a_inf, b_inf;
+    wire a_nan,b_nan,a_inf, b_inf,invalid_input;
     
     //Rounding logic wires
     wire ovf, round_up;
@@ -78,8 +78,8 @@ module FPU_Core(
    
     assign a_nan = (&a[30:23]) & (|a[22:0]);
     assign b_nan = (&b[30:23]) & (|b[22:0]);
-    assign a_inf = (&a[30:23]) & (&a[22:0]);
-    assign b_inf = (&b[30:23]) & (&b[22:0]);
+    assign a_inf = (&a[30:23]) & (~|a[22:0]);
+    assign b_inf = (&b[30:23]) & (~|b[22:0]);
     //Checks if inputs are zero
     assign a_zero = ~|a[30:0];
     assign b_zero = ~|b[30:0];
@@ -116,10 +116,10 @@ module FPU_Core(
                             cnt <= (diff > 8'd27)? 5'd27 : diff[4:0]; //if difference greater than 27, counter capped at 27
                             if(a_zero || b_zero) begin
                                 if(a_zero && b_zero) begin
-                                    sign <= a[31]& b[31];
-                                    exp <= {1'b0,big[30:23]};
+                                    sign <= a[31]& b_eff[31];
                                 end
                                 state <= DONE;
+                                exp <= {1'b0,big[30:23]};
                             end
                         end
                     end
