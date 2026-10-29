@@ -12,6 +12,7 @@ module tt_um_project_fpu (
     input  wire [7:0] uio_in,   // input when ui_in[0]==1
     output wire [7:0] uio_out,  // output when ui_in[1]==1
     output wire [7:0] uio_oe,   // Enable for inout 0--> Input, 1--> Output
+    input  wire       ena,
     output wire [7:0] uo_out
 );
 // Synchronizers + edge detect
@@ -119,4 +120,7 @@ assign uo_out[2]   = err_l;
 assign uo_out[3]   = ready;
 assign uo_out[6:4] = wr_ptr;
 assign uo_out[7]   = 1'b0;
+
+wire _unused = &{ena, 1'b0};
+
 endmodule
