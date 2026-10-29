@@ -37,6 +37,7 @@ module FPU_Core(
     wire big_hid, sml_hid;
     //Checks magnitude to see if a and b need to be swapped
     wire swap;
+    wire a_nan,b_nan,a_inf, b_inf;
     
     //Rounding logic wires
     wire ovf, round_up;
@@ -94,6 +95,7 @@ module FPU_Core(
             frac_sml <= 27'b0;
             exp <= 9'b0;
             cnt <= 5'b0;
+            error <= 1'b0;
         end else begin
             error <= 1'b0;
             case(state) 
@@ -177,3 +179,4 @@ module FPU_Core(
     assign valid_out = (state == DONE);    
                    
 endmodule
+
