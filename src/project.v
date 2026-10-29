@@ -5,7 +5,7 @@
 
 `default_nettype none
 
-module project (
+module tt_um_project_fpu (
     input  wire       clk,
     input  wire       rst_n,
     input  wire [7:0] ui_in,    // [0]-write_en, [1]-read_en, [2]-start, [3]-opcode, [4]-clear, [5:7]-reserved 
