@@ -45,29 +45,29 @@ reg        busy, done_l, err_l, ready, core_start;
 // FPU core 
 wire [31:0] core_result;
 wire        core_done, core_err;
-// fpu_core u_fpu (
-//     .clk    (clk),
-//     .rst_n  (rst_n),
-//     .start  (core_start),
-//     .op     (op_reg),
-//     .op_a   (a_reg),
-//     .op_b   (b_reg),
-//     .result (core_result),
-//     .done   (core_done),
-//     .err    (core_err)
-// );
+fpu_core u_fpu (
+    .clk    (clk),
+    .rst_n  (rst_n),
+    .start  (core_start),
+    .op     (op_reg),
+    .op_a   (a_reg),
+    .op_b   (b_reg),
+    .result (core_result),
+    .done   (core_done),
+    .err    (core_err)
+);
 
-    FPU_Core u_fpu (
-        .clk (clk),
-        .rstn (rst_n),
-        .a(a_reg),
-        .b(b_reg),
-        .op(op_reg),
-        .start(core_start),
-        .result(core_result),
-        .valid_out(core_done),
-        .error(core_err)
-    );
+    // FPU_Core u_fpu (
+    //     .clk (clk),
+    //     .rstn (rst_n),
+    //     .a(a_reg),
+    //     .b(b_reg),
+    //     .op(op_reg),
+    //     .start(core_start),
+    //     .result(core_result),
+    //     .valid_out(core_done),
+    //     .error(core_err)
+    // );
 
 // Control Logic
 always @(posedge clk or negedge rst_n) begin
