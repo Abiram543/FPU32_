@@ -53,7 +53,7 @@ reg        busy, done_l, err_l, ready, core_start;
 wire [31:0] core_result;
 wire        core_done, core_err;
 
-FPUCore u_fpu (
+FPU_Core u_fpu (
     .clk       (clk),
     .rstn      (rst_n),
     .a         (a_reg),
