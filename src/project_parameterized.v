@@ -31,7 +31,7 @@
 
 `default_nettype none
 
-module tt_um_project_fpu #(
+module tt_um_project_fpu_parameterized #(
     parameter EXP_W = 5,            // exponent width  (default: FP16)
     parameter MAN_W = 10            // mantissa width   (default: FP16)
 )(
