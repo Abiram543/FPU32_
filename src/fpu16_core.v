@@ -1,187 +1,126 @@
+`default_nettype none
 module FPU16_Core(
-    input  wire        clk,
-    input  wire        rstn,
-    input  wire [15:0] a,
-    input  wire [15:0] b,
-    input  wire        op,          // 1: Add, 0: Subtract
-    input  wire        start,
+    input wire clk,
+    input wire rst_n,
+    input wire start, // Will assert once the valid operands and opcode has arrived
+    input wire op, // 0=ADD, 1=SUB
+    input wire [15:0] op_a,
+    input wire [15:0] op_b,
+    output reg [15:0] result,
+    output reg done, // Done flag
+    output reg err // Error flag
+    );
 
-    output wire [15:0] result,
-    output wire        valid_out,
-    output reg         error
-);
-
-    localparam IDLE = 3'd0, ALIGN  = 3'd1, EXEC   = 3'd2, NORMAL = 3'd3, ROUND  = 3'd4, DONE   = 3'd5;
-
-    reg [2:0] state;
-    reg sign, eff_sub;
-
-    reg [14:0] frac_big;
-    reg [13:0] frac_sml;
-
-    reg [5:0] exp;
-    reg [3:0] cnt;
-
-    // Operand ordering
-    wire [15:0] b_eff;
-    wire [15:0] big, sml;
-    wire swap;
-
-    wire big_hid, sml_hid;
-    wire [4:0] big_e, sml_e, diff;
-
-    wire in_err;
-
-    // Shared ALU
-    wire round_up;
-    wire [14:0] alu_b;
-    wire alu_c;
-    wire [14:0] alu;
-
-    // Rounding and exponent logic
-    wire [11:0] frac_round;
-    wire exp_dec;
-    wire [5:0] exp_upd;
-    wire [5:0] e_round;
-    wire ovf;
-
-    assign b_eff = {b[15] ^ ~op, b[14:0]};
-
-    assign swap = (a[14:0] < b_eff[14:0]);
-
-    assign big = swap ? b_eff : a;
-    assign sml = swap ? a : b_eff;
-
-    assign big_hid = |big[14:10];
-    assign sml_hid = |sml[14:10];
-
-    assign big_e = big[14:10] | {4'b0, ~big_hid};
-    assign sml_e = sml[14:10] | {4'b0, ~sml_hid};
-
-    assign diff = big_e - sml_e;
-
-    // Inf / NaN detection
-    assign in_err = (&a[14:10]) | (&b[14:10]);
-
-
-    assign round_up = frac_big[2] & (frac_big[1] | frac_big[0] | frac_big[3]);
-
-    assign alu_b = (state == ROUND) ? {11'b0, round_up, 3'b0} : ({1'b0, frac_sml} ^ {15{eff_sub}});
-
-    assign alu_c = (state != ROUND) & eff_sub;
-
-    assign alu = frac_big + alu_b + {14'b0, alu_c};
-
-    assign frac_round = alu[14:3];
-
-
-    assign exp_dec = (state == NORMAL) & ~frac_big[14];
-
-    assign exp_upd = exp + {{5{exp_dec}}, 1'b1};
-
-    assign e_round = frac_round[11] ? exp_upd : (frac_round[10] ? exp : 6'd0);
-
-    assign ovf = e_round[5] | (&e_round[4:0]);
+    localparam S_IDLE = 0;
+    localparam S_SPECIAL = 1;
+    localparam S_OPERATION = 2;
     
-    /*wire a_zero, b_zero;
-
-    assign a_zero = ~|a[14:0];
-    assign b_zero = ~|b[14:0];*/
-
-    always @(posedge clk or negedge rstn) begin
-
-        if (!rstn) begin
-            state <= IDLE;
-            sign    <= 1'b0;
-            eff_sub <= 1'b0;
-            error   <= 1'b0;
-            frac_big <= 15'd0;
-            frac_sml <= 14'd0;
-            exp <= 6'd0;
-            cnt <= 4'd0;
-        end else begin
-
-            case (state)
-                IDLE: begin
-                    if (start) begin
-                        error <= in_err;
-                        sign <= big[15];
-                        eff_sub <= big[15] ^ sml[15];
-                        exp <= {1'b0, big_e};
-                        frac_big <= {1'b0,big_hid,big[9:0],3'b000};
-                        frac_sml <= {sml_hid,sml[9:0],3'b000};
-
-                        cnt <= (diff > 5'd13) ?  4'd13 : diff[3:0];
-
-                        if (in_err) state <= DONE;
-                        /*else if (a_zero || b_zero) begin
-                            exp <= 6'd0;
-                            frac_big <= 15'd0;
-                            state <= DONE;
-                            if (a_zero && b_zero)
-                                sign <= a[15] & b_eff[15];
-                            else
-                                sign <= a_zero ? b_eff[15] : a[15];
-                        
-                        end */ else state <= ALIGN;
-                    end
-                end
-                ALIGN: begin
-                    if (|cnt) begin
-                        frac_sml <= {1'b0,frac_sml[13:2],frac_sml[1] | frac_sml[0]};
-                        cnt <= cnt - 4'd1;
-                    end
-                    else state <= EXEC;
-                end
-
-                EXEC: begin
-                    frac_big <= alu;
-                    state <= NORMAL;
-                end
-
-
-                NORMAL: begin
-                    // Exact cancellation
-                    if (~|frac_big) begin
-                        exp <= 6'd0;
-                        sign <= sign & ~eff_sub;
-                        state <= DONE;
-                    end
-                    // Right normalization after carry
-                    else if (frac_big[14]) begin
-                        frac_big <= {1'b0, frac_big[14:2],frac_big[1] | frac_big[0]};
-                        exp <= exp_upd;
-                        state <= ROUND;
-                    end
-                    // Left normalization
-                    else if (!frac_big[13] && |exp[5:1]) begin
-                        frac_big <= {frac_big[13:0],1'b0};
-                        exp <= exp_upd;
-                    end
-
-                    else state <= ROUND;
-                end
-
-                ROUND: begin
-                    if (ovf) begin // if ovf then infinity
-                        exp <= 6'd31;
-                        frac_big[12:3] <= 10'd0;
-                    end
-                    else begin
-                        exp <= e_round;
-                        frac_big[12:3] <= frac_round[9:0];
-                    end
-                    state <= DONE;
-                end
-
-                DONE: state <= IDLE;
-
-                default: state <= IDLE;
-            endcase
+    // Swap/Sign handling
+    wire sign_eff = op_b[15] ^ op; // SUB = ADD with B's sign flipped 
+    wire a_bigger = (op_a[14:0] >= op_b[14:0]); // Comparison of magnitudes
+    
+    wire sign_big =  a_bigger ? op_a[15] : sign_eff; // Bigger number sign is retained in the result
+    wire sign_small = a_bigger ? sign_eff : op_a[15];
+    wire [4:0] exp_big = a_bigger ? op_a[14:10] : op_b[14:10];
+    wire [4:0] exp_small = a_bigger ? op_b[14:10] : op_a[14:10];
+    wire [9:0] mant_big = a_bigger ? op_a[9:0] : op_b[9:0];
+    wire [9:0] mant_small = a_bigger ? op_b[9:0] : op_a[9:0];
+    
+    wire sub_operation = sign_big ^ sign_small; // 1 = Subtract magnitudes       
+    
+    // Updated mantissa with the hidden bit used by S_OPERATION state
+    // Hidden bit is always 1 as all the numbers are normalized during S_OPERATION
+    wire [10:0] m_big = {1'b1, mant_big};
+    wire [10:0] m_small = {1'b1, mant_small};
+                   
+    // Align : Shift the smaller mantissa right by the exponent difference
+    // If exp diff >= 11 then the smaller mantissa becomes zero. Clear the whole mantissa.
+    wire [4:0] exp_diff = exp_big - exp_small;
+    wire [10:0] m_small_aligned = m_small >> exp_diff;
+    
+    wire [11:0] mant_sum = sub_operation ? {1'b0, m_big} - {1'b0, m_small_aligned} : 
+                                            {1'b0, m_big} + {1'b0, m_small_aligned};
+    
+    // Leading zeroes count for normalization 
+    function [3:0] leading_zeroes; // returns a 4 bit number (max value = 10)
+        input [10:0] x; 
+        integer i;
+        begin
+        leading_zeroes = 4'd10;
+        for(i = 0; i < 11; i = i + 1) 
+            if(x[i]) leading_zeroes = 10 - i;
         end
+    endfunction
+    
+    wire [3:0] lz = leading_zeroes(mant_sum[10:0]);
+    wire [10:0] mant_norm = mant_sum[10:0] << lz;
+     
+    reg [1:0] ps,ns;
+    // Present state logic
+    always@(posedge clk or negedge rst_n) begin
+        if(!rst_n) ps <= S_IDLE;
+        else ps <= ns;
     end
-
-    assign result = {sign,exp[4:0],frac_big[12:3]};
-    assign valid_out = (state == DONE);
-
+    
+    // Next state logic
+    always@(*) begin
+        ns = ps;
+        result = 16'd0;
+        done = 1'b0;
+        err = 1'b0;
+        
+        case(ps) 
+            S_IDLE: begin
+                if(start) ns = S_SPECIAL;
+            end
+            
+            S_SPECIAL: begin
+                // Infinity and NaN cases (exponent = 5'b11111 = 31)
+                if((exp_big == 5'b11111) || (exp_small == 5'b11111)) begin 
+                    err = 1'b1;
+                    done = 1'b1;
+                    ns = S_IDLE;
+                end
+                // Operand b = 0 special case
+                else if((exp_small == 5'd0) && (mant_small == 10'd0)) begin
+                    result = {sign_big, exp_big, mant_big};
+                    done = 1'b1;
+                    ns = S_IDLE;
+                end
+                // Denormalized numbers special case
+                else if(((exp_big == 5'd0) && (mant_big != 10'd0)) || ((exp_small == 5'd0) && (mant_small != 10'd0))) begin
+                    err = 1'b1;
+                    done = 1'b1;
+                    ns = S_IDLE;
+                end
+                
+                else begin
+                    ns = S_OPERATION;
+                end
+            end
+            
+            S_OPERATION: begin
+                done = 1'b1;
+                ns = S_IDLE;
+                if(mant_sum[11]) begin // When carry bit is logic high, shift right 1 and add 1 to exponent  
+                    if(exp_big == 5'd30) 
+                        result = {sign_big, 5'h1F, 10'd0}; // Overflow to infinity
+                    else 
+                        result = {sign_big, exp_big + 5'b1, mant_sum[10:1]}; 
+                end
+                // If the magnitude of op_a and op_b are same and the operation is SUB
+                // Then the result should be +0
+                else if(mant_sum[10:0] == 11'd0)
+                    result = 16'd0;
+                // Underflow - When during normalization exp value falls outside the range of exp    
+                else if({1'b0, lz} >= exp_big) 
+                    result = {sign_big, 15'd0};
+                // Left normalize
+                else 
+                    result = {sign_big, (exp_big - {1'b0, lz}), mant_norm[9:0]};
+            end
+            
+            default: ns = S_IDLE;
+        endcase
+    end
 endmodule
