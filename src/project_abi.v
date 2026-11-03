@@ -51,13 +51,13 @@ wire        core_done, core_err;
 
 FPU32_Core u_fpu (
     .clk       (clk),
-    .rstn      (rst_n),
+    .rst_n      (rst_n),
     .a         (a_reg),
     .b         (b_reg),
-    .op        (op_reg),
+    .op_sub    (op_reg),
     .start     (core_start),
     .result    (core_result),
-    .valid_out (core_done),
+    .done      (core_done),
     .error     (core_err),
     .busy      (busy)
 );
