@@ -203,14 +203,14 @@ wire        core_done, core_err;
 
 FPU16_Core u_fpu (
     .clk       (clk),
-    .rstn      (rst_n),
-    .a         (a_reg),
-    .b         (b_reg),
+    .rst_n     (rst_n),
+    .op_a      (a_reg),
+    .op_b      (b_reg),
     .op        (op_reg),
     .start     (core_start),
     .result    (core_result),
-    .valid_out (core_done),
-    .error     (core_err)
+    .done      (core_done),
+    .err     (core_err)
 );
 
 // ---------------------------------------------------------------
