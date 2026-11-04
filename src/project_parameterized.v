@@ -96,7 +96,7 @@ wire             core_done, core_err;
 
 fpu_core_parameterized  #(
     .EXP_W (EXP_W),
-    .FRAC_W (MAN_W)
+    .MAN_W (MAN_W)
 ) u_fpu (
     .clk       (clk),
     .rst_n     (rst_n),
