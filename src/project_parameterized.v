@@ -94,19 +94,19 @@ reg                   busy, done_l, err_l, ready, core_start;
 wire [WIDTH-1:0] core_result;
 wire             core_done, core_err;
 
-fpu_core_parameterized  #(
+FPU_Param_Core  #(
     .EXP_W (EXP_W),
-    .MAN_W (MAN_W)
+    .FRAC_W (MAN_W)
 ) u_fpu (
     .clk       (clk),
-    .rst_n     (rst_n),
-    .op_a      (a_reg),
-    .op_b      (b_reg),
+    .rstn     (rst_n),
+    .a      (a_reg),
+    .b      (b_reg),
     .op        (op_reg),
     .start     (core_start),
     .result    (core_result),
-    .done      (core_done),
-    .err       (core_err)
+    .valid_out      (core_done),
+    .error       (core_err)
 );
 
 // ====================================================================
