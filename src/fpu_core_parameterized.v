@@ -15,7 +15,7 @@
 // ============================================================================
 `default_nettype none
 
-module fpu_core #(
+module fpu_core_parameterized #(
     parameter EXP_W = 5,            // exponent width
     parameter MAN_W = 10            // mantissa width (excluding hidden bit)
 )(
