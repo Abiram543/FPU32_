@@ -94,15 +94,28 @@ module fpu_core_parameterized #(
         begin
             leading_zeroes = MAN_W[LZ_W-1:0];          // default: all zeros
             for (i = 0; i < MAN_FULL; i = i + 1)
-                if (x[i]) leading_zeroes = (MAN_W - i);
+                if (x[i]) leading_zeroes = MAN_W[LZ_W-1:0] - i[LZ_W-1:0];
         end
     endfunction
 
-    wire [LZ_W-1:0]    lz        = leading_zeroes(mant_sum[MAN_FULL-1:0]);
-    wire [MAN_FULL-1:0] mant_norm = mant_sum[MAN_FULL-1:0] << lz;
+    wire [LZ_W-1:0]     lz          = leading_zeroes(mant_sum[MAN_FULL-1:0]);
+    wire [MAN_FULL-1:0] mant_shifted = mant_sum[MAN_FULL-1:0] << lz;
+    wire [MAN_W-1:0]    mant_norm    = mant_shifted[MAN_W-1:0];
 
     // Extend lz to exponent width for safe comparison and subtraction
-    wire [EXP_W-1:0] lz_ext = lz;                      // auto zero-extend / truncate
+    wire [EXP_W-1:0] lz_ext;
+    generate
+        if (EXP_W > LZ_W) begin : gen_lz_ext
+            assign lz_ext = {{(EXP_W - LZ_W){1'b0}}, lz};
+        end else if (EXP_W < LZ_W) begin : gen_lz_trunc
+            assign lz_ext = lz[EXP_W-1:0];
+        end else begin : gen_lz_same
+            assign lz_ext = lz;
+        end
+    endgenerate
+
+    // Hidden bit after normalisation is implicit in IEEE 754 — tie off
+    wire _unused = &{mant_shifted[MAN_FULL-1], 1'b0};
 
     // ----------------------------------------------------------------
     // FSM
