@@ -69,7 +69,7 @@ module fpu_core #(
         end
     endfunction
 
-    wire [LZ_W-1:0]    lz        = leading_zeroes(mant_sum[MAN_FULL-1:0]);
+    wire [LZ_W-1:0]    lz = leading_zeroes(mant_sum[MAN_FULL-1:0]);
 
     /* verilator lint_off UNUSEDSIGNAL */
     wire [MAN_FULL-1:0] mant_norm = mant_sum[MAN_FULL-1:0] << lz;
