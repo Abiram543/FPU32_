@@ -25,16 +25,14 @@ localparam RD_PTR_W     = $clog2(BYTES_PER_OP) > 0
 
 // Edge detection — single-stage pipeline (TT mux, same clock domain)
 reg [1:0] wr_s, rd_s, st_s;
-reg       clr_s;
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        wr_s <= 2'b0;  rd_s <= 2'b0;  st_s <= 2'b0;  clr_s <= 1'b0;
+        wr_s <= 2'b0;  rd_s <= 2'b0;  st_s <= 2'b0;
     end else begin
         wr_s  <= {wr_s[0],  ui_in[0]};
         rd_s  <= {rd_s[0],  ui_in[1]};
         st_s  <= {st_s[0],  ui_in[2]};
-        clr_s <= ui_in[4];
     end
 end
 
@@ -42,7 +40,6 @@ wire wr_pulse    =  wr_s[0] & ~wr_s[1];
 wire start_pulse =  st_s[0] & ~st_s[1];
 wire rd_fall     = ~rd_s[0] &  rd_s[1];
 wire rd_level    =  rd_s[0];
-wire clr         =  clr_s;
 
 // Operand registers — NO reset (saves mux cells)
 reg [WIDTH-1:0]       a_reg, b_reg, result_reg;
@@ -76,15 +73,21 @@ localparam [WR_PTR_W-1:0] BYTES_OFFSET = BYTES_PER_OP[WR_PTR_W-1:0];
 localparam [WR_PTR_W-1:0] WR_PTR_LAST  = TOTAL_BYTES[WR_PTR_W-1:0] - 1'b1;
 
 integer wi;
-always @(posedge clk) begin
-    if (!busy && !clr && wr_pulse && !(start_pulse && ready)) begin
-        for (wi = 0; wi < BYTES_PER_OP; wi = wi + 1) begin
-            if (wr_ptr == wi[WR_PTR_W-1:0])
-                a_reg[wi*8 +: 8] <= uio_in;
-            if (wr_ptr == (BYTES_OFFSET + wi[WR_PTR_W-1:0]))
-                b_reg[wi*8 +: 8] <= uio_in;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            for (wi = 0; wi < BYTES_PER_OP; wi = wi + 1) begin
+                a_reg[wi*8 +: 8] <= 'd0;
+                b_reg[wi*8 +: 8] <= 'd0;
+            end
         end
-    end
+        else if (!busy && wr_pulse && !(start_pulse && ready)) begin
+            for (wi = 0; wi < BYTES_PER_OP; wi = wi + 1) begin
+                if (wr_ptr == wi[WR_PTR_W-1:0])
+                    a_reg[wi*8 +: 8] <= uio_in;
+                if (wr_ptr == (BYTES_OFFSET + wi[WR_PTR_W-1:0]))
+                    b_reg[wi*8 +: 8] <= uio_in;
+            end
+        end
 end
 
 // Control FSM
