@@ -1,18 +1,3 @@
-// ============================================================================
-// Parameterized IEEE 754 Floating-Point Adder/Subtractor (Combinational)
-// ============================================================================
-// Mostly combinational approach: single-cycle alignment (barrel shift),
-// add/subtract, and normalisation. 3-state FSM: IDLE → SPECIAL → OPERATION.
-//
-//   Format     | EXP_W | MAN_W | WIDTH
-//   -----------|-------|-------|------
-//   FP8  E4M3  |   4   |   3   |   8
-//   FP8  E5M2  |   5   |   2   |   8
-//   FP16       |   5   |  10   |  16    ← default
-//   BF16       |   8   |   7   |  16
-//   FP32       |   8   |  23   |  32
-//   FP64       |  11   |  52   |  64
-// ============================================================================
 `default_nettype none
 
 module fpu_core #(
@@ -31,9 +16,7 @@ module fpu_core #(
     output reg                err         // Error flag
 );
 
-    // ----------------------------------------------------------------
     // Derived parameters
-    // ----------------------------------------------------------------
     localparam MAN_FULL  = MAN_W + 1;                   // mantissa + hidden bit
     localparam SUM_W     = MAN_W + 2;                   // carry + hidden + mantissa
     localparam LZ_W      = $clog2(MAN_FULL + 1) > 0    // leading-zero counter width
@@ -41,16 +24,12 @@ module fpu_core #(
     localparam [EXP_W-1:0] EXP_INF = {EXP_W{1'b1}};   // all-ones exponent (inf/nan)
     localparam [EXP_W-1:0] EXP_MAX = EXP_INF - 1'b1;   // max normal exponent
 
-    // ----------------------------------------------------------------
     // FSM states
-    // ----------------------------------------------------------------
     localparam S_IDLE      = 2'd0;
     localparam S_SPECIAL   = 2'd1;
     localparam S_OPERATION = 2'd2;
 
-    // ----------------------------------------------------------------
     // Swap / sign handling
-    // ----------------------------------------------------------------
     wire sign_eff = op_b[WIDTH-1] ^ op;                 // SUB = ADD with B's sign flipped
     wire a_bigger = (op_a[WIDTH-2:0] >= op_b[WIDTH-2:0]);
 
@@ -64,30 +43,22 @@ module fpu_core #(
 
     wire sub_operation = sign_big ^ sign_small;         // 1 = subtract magnitudes
 
-    // ----------------------------------------------------------------
     // Mantissa with hidden bit
-    // ----------------------------------------------------------------
     wire [MAN_FULL-1:0] m_big   = {1'b1, mant_big};
     wire [MAN_FULL-1:0] m_small = {1'b1, mant_small};
 
-    // ----------------------------------------------------------------
     // Alignment: barrel-shift smaller mantissa right by exponent diff
     // (if diff >= MAN_FULL the shifted mantissa becomes zero — correct)
-    // ----------------------------------------------------------------
     wire [EXP_W-1:0]    exp_diff        = exp_big - exp_small;
     wire [MAN_FULL-1:0] m_small_aligned = m_small >> exp_diff;
 
-    // ----------------------------------------------------------------
     // Add / Subtract
-    // ----------------------------------------------------------------
     wire [SUM_W-1:0] mant_sum = sub_operation
         ? {1'b0, m_big} - {1'b0, m_small_aligned}
         : {1'b0, m_big} + {1'b0, m_small_aligned};
 
-    // ----------------------------------------------------------------
     // Leading-zero count (priority encoder, combinational)
     // Scans from LSB to MSB; last match wins → gives leading-zero count.
-    // ----------------------------------------------------------------
     function [LZ_W-1:0] leading_zeroes;
         input [MAN_FULL-1:0] x;
         integer i;
@@ -107,9 +78,7 @@ module fpu_core #(
     // Extend lz to exponent width for safe comparison and subtraction
     wire [EXP_W-1:0] lz_ext = {{(EXP_W-LZ_W){1'b0}}, lz};
 
-    // ----------------------------------------------------------------
     // FSM
-    // ----------------------------------------------------------------
     reg [1:0] ps, ns;
 
     // Present-state register
@@ -162,7 +131,7 @@ module fpu_core #(
                 // Carry-out from addition → shift right 1, exponent + 1
                 if (mant_sum[SUM_W-1]) begin
                     if (exp_big == EXP_MAX)
-                        result = {sign_big, EXP_INF, {MAN_W{1'b0}}};       // overflow → ±∞
+                        result = {sign_big, EXP_INF, {MAN_W{1'b0}}};       // overflow
                     else
                         result = {sign_big, exp_big + 1'b1, mant_sum[MAN_FULL-1:1]};
                 end
