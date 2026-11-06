@@ -94,7 +94,7 @@ reg                   busy, done_l, err_l, ready, core_start;
 wire [WIDTH-1:0] core_result;
 wire             core_done, core_err;
 
-fpu_core #(
+fpu_core_param #(
     .EXP_W (EXP_W),
     .MAN_W (MAN_W)
 ) u_fpu (
